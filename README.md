@@ -1,4 +1,4 @@
-# rag_chatbot
+# Sustainablity_chatbot
 
 ### How to install ?
 
