@@ -4,12 +4,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
-from langchain.vectorstores import FAISS
+#from langchain.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from PIL import Image
+
+from langchain_community.vectorstores import FAISS
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
@@ -36,12 +38,11 @@ def get_gemini_response(input,image,prompt):
     except:
         return 'Trouble encountered while generating response'
 
-def get_pdf_text(pdf_docs):
+def get_pdf_text(pdf_doc):
     text=""
-    for pdf in pdf_docs:
-        pdf_reader= PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text+= page.extract_text()
+    pdf_reader= PdfReader(pdf_doc)
+    for page in pdf_reader.pages:
+        text+= page.extract_text()
     return  text
 
 def get_text_chunks(text):
@@ -82,9 +83,7 @@ def user_input(user_question):
     
     new_db = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
     docs = new_db.similarity_search(user_question)
-
     chain = get_conversational_chain()
-
     
     response = chain(
         {"input_documents":docs, "question": user_question}
@@ -93,64 +92,26 @@ def user_input(user_question):
     print(response)
     st.subheader("The Response is")
     st.write("", response["output_text"])
-    
-    #st.write(response)
-
-
 
 def main():
-    st.set_page_config(page_title="Chat PDF")
-    st.header("Custom chatbot for pdf / image analysis")
+    st.set_page_config(page_title="Green")
+    st.header("Sustainability Bot (draft)")
 
-    with st.sidebar:
-        st.title("Get Started:")
-        uploaded_file = st.file_uploader("Upload your Files and Click on the Process Button.", accept_multiple_files=True, type=["jpg", "jpeg", "png", "pdf"])
-        file_extension = ''
-        file_name = ''
-        if uploaded_file is not None:
-            for file in uploaded_file:
-                file_extension = file.name.split('.')[-1]
-                file_name = file.name
-                st.write(f"Uploaded File Format: {file_extension}")
-
-        if st.button("Process"):
-            if file_extension == 'pdf':
-                with st.spinner("Processing..."):
-                    raw_text = get_pdf_text(uploaded_file)
-                    text_chunks = get_text_chunks(raw_text)
-                    get_vector_store(text_chunks)
-                    st.success("Done")
-            elif file_extension in ['png', 'jpg', 'jpeg']:
-                with st.spinner("Processing..."):
-                    st.success("Done")
-
-    if (file_extension in ['png', 'jpg', 'jpeg']):
-        image = Image.open(uploaded_file[0])
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+    # Specify the filename without the directory path
+    filename = "visaiq.pdf"
+    
+    # Assuming the file is located in the same directory as the script
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(script_directory, filename)
+    print("*****************",file_path)
+    raw_text = get_pdf_text(file_path)
+    text_chunks = get_text_chunks(raw_text)
+    get_vector_store(text_chunks)
 
     with st.form("question_form"):
-        user_question = st.text_input("Ask a Question")
-        submit_button = st.form_submit_button(label="Generate Response")
-
-    if submit_button:
-        if file_extension == 'pdf':
-            user_input(user_question)
-        
-        if (file_extension in ['png', 'jpg', 'jpeg']):
-            input_prompt = """ 
-            You are an expert in reading textual content from images. We will upload an image containing text data. 
-            Your task is to extract relevant information from the image and provide responses to questions based on it.
-
-            For example, if the image contains a story about "Jack and the Beanstalk," and the text mentions that "Jack had 3 beans," 
-            then when asked "How many beans did Jack have?" you should respond with "Jack had 3 beans."
-
-            Ensure your responses are accurate and relevant to the content in the image.
-            """
-            image_data=input_image_setup(uploaded_file[0])
-            response=get_gemini_response(input_prompt,image_data,user_question)
-            st.subheader("The Response is")
-            st.write(response)
-
+        user_question = st.text_input("Let me help you with your questions on sustainablity")
+        submit_button = st.form_submit_button(label="Generate Response")
+    user_input(user_question)
 
 if __name__ == "__main__":
     main()
